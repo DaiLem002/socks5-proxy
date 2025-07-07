@@ -1,6 +1,6 @@
 #!/bin/bash
 # =====================================================
-#  aws-secure.sh  –  DaiLem002
+#  aws-secure.sh  –  DaiLem002 / 2025-06-25
 #  Hàm: setup_proxy_single_port PORT PASSWORD ALLOW_IP \
 #                               ENABLE_TELEGRAM BOT_TOKEN USER_ID
 # =====================================================
