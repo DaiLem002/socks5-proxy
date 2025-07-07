@@ -19,7 +19,7 @@ install_dependencies() {
 setup_proxy_single_port() {
   local PORT="$1" PASSWORD="$2" ALLOW_IP="$3"
   local ENABLE_TELEGRAM="$4" BOT_TOKEN="$5" USER_ID="$6"
-  local USERNAME="quang" # Tên người dùng mặc định cho proxy
+  local USERNAME="dailem" # Tên người dùng mặc định cho proxy
 
   # 2.1 Kiểm tra port hợp lệ
   if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then
