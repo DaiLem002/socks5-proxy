@@ -1,6 +1,6 @@
 #!/bin/bash
 # =====================================================
-#  aws-secure.sh  –  quang273 / 2025-06-25
+#  aws-secure.sh
 #  Hàm: setup_proxy_single_port PORT PASSWORD ALLOW_IP \
 #                               ENABLE_TELEGRAM BOT_TOKEN USER_ID
 # =====================================================
