@@ -1,9 +1,5 @@
 #!/bin/bash
-# Script dựng SOCKS5 proxy Dante + gửi thông tin về Telegram
-# Port cố định: 8888
-# User cố định: dailem
-# Pass cố định: dailem2002
-# Telegram Bot Token và Chat ID đã được cố định
+# Script dựng SOCKS5 proxy Dante + gửi thông tin dạng IP:PORT:USER:PASS
 
 install_dependencies() {
   export DEBIAN_FRONTEND=noninteractive
@@ -24,6 +20,9 @@ setup_proxy_auto() {
   install_dependencies
 
   # Lấy interface mạng mặc định
+  local PUBLIC_IP
+  PUBLIC_IP=$(curl -s ifconfig.me)
+
   local IFACE
   IFACE=$(ip route get 1.1.1.1 | awk '{print $5; exit}')
 
@@ -57,18 +56,13 @@ EOF
   iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null || \
     iptables -A INPUT -p tcp --dport "$PORT" -j ACCEPT
 
-  # Gửi thông tin proxy về Telegram
-  PUBLIC_IP=$(curl -s ifconfig.me)
-  MSG="Proxy SOCKS5 đã sẵn sàng!
-IP: $PUBLIC_IP
-Port: $PORT
-User: $USERNAME
-Pass: $PASSWORD"
+  # Gửi proxy dạng IP:PORT:USER:PASS về Telegram
+  local PROXY_INFO="$PUBLIC_IP:$PORT:$USERNAME:$PASSWORD"
   curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
     -d chat_id="$CHAT_ID" \
-    -d text="$MSG"
+    -d text="$PROXY_INFO"
 
-  echo "[INFO] Proxy đã được dựng và thông tin gửi về Telegram."
+  echo "[INFO] Proxy đã được dựng và gửi về Telegram dưới dạng IP:PORT:USER:PASS"
 }
 
 # Chạy script
