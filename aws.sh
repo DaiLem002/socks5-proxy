@@ -1,83 +1,72 @@
 #!/bin/bash
-# =====================================================
-#  aws-secure.sh
-#  Hàm: setup_proxy_single_port PORT PASSWORD ALLOW_IP \
-#                               ENABLE_TELEGRAM BOT_TOKEN USER_ID
-# =====================================================
+# Script dựng SOCKS5 proxy với Dante + gửi thông tin về Telegram
+# Port: 8888
+# User: dailem
+# Pass: dailem2002
 
-# ---------- 1. Cài gói cần thiết (một lần) ------------
 install_dependencies() {
-  # Kiểm tra nếu danted đã cài đặt thì thoát sớm
-  command -v danted &>/dev/null && return
-
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
   apt-get install -y dante-server curl iptables
 }
 
-# ---------- 2. Hàm khởi tạo proxy --------------------
-setup_proxy_single_port() {
-  local PORT="$1" PASSWORD="$2" ALLOW_IP="$3"
-  local ENABLE_TELEGRAM="$4" BOT_TOKEN="$5" USER_ID="$6"
-  local USERNAME="dailem" # Tên người dùng mặc định cho proxy
+setup_proxy_fixed() {
+  local PORT=8888
+  local PASSWORD="dailem2002"
+  local USERNAME="dailem"
 
-  # 2.1 Kiểm tra port hợp lệ
-  if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then
-    echo "[ERR]  Port $PORT không hợp lệ! Vui lòng chọn port từ 1024 đến 65535." >&2
-    return 1
-  fi
+  local BOT_TOKEN="$1"
+  local USER_ID="$2"
 
-  # 2.2 Cài gói cần thiết
-  echo "[INFO] Đang cài đặt các gói cần thiết..."
+  # Cài gói
   install_dependencies
 
-  # 2.3 Lấy interface mặc định
+  # Lấy interface mạng mặc định
   local IFACE
   IFACE=$(ip route get 1.1.1.1 | awk '{print $5; exit}')
-  if [[ -z "$IFACE" ]]; then
-    echo "[ERR] Không thể tìm thấy interface mạng mặc định." >&2
-    return 1
-  fi
-  echo "[INFO] Interface mạng được phát hiện: $IFACE"
 
-  # 2.4 Tạo cấu hình Dante
-  echo "[INFO] Tạo cấu hình Dante tại /etc/danted.conf..."
+  # Cấu hình Dante
   cat >/etc/danted.conf <<EOF
-internal: $IFACE port = $PORT
+logoutput: syslog
+internal: 0.0.0.0 port = $PORT
 external: $IFACE
-
-method: username
+socksmethod: username
 user.notprivileged: nobody
-
 client pass {
-  from: $ALLOW_IP to: 0.0.0.0/0
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+    log: connect disconnect error
 }
-
-pass {
-  from: $ALLOW_IP to: 0.0.0.0/0
-  protocol: tcp udp
-  method: username
+socks pass {
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+    command: bind connect udpassociate
+    log: connect disconnect error
 }
 EOF
 
-  # 2.5 Tạo tài khoản proxy
-  echo "[INFO] Tạo tài khoản proxy: $USERNAME..."
-  userdel -r "$USERNAME" 2>/dev/null || true # Xóa người dùng cũ nếu tồn tại
-  useradd -M -s /bin/false "$USERNAME"       # Tạo người dùng mới không có thư mục home và shell
-  echo "$USERNAME:$PASSWORD" | chpasswd      # Đặt mật khẩu
+  # Tạo user và đặt password
+  id -u "$USERNAME" &>/dev/null || useradd -M -s /bin/false "$USERNAME"
+  echo "$USERNAME:$PASSWORD" | chpasswd
 
-  # 2.6 Khởi động dịch vụ Dante
-  echo "[INFO] Khởi động và kích hoạt dịch vụ danted..."
+  # Khởi động Dante
   systemctl restart danted
   systemctl enable danted
-  if ! systemctl is-active --quiet danted; then
-    echo "[ERR] Dịch vụ Dante không thể khởi động. Vui lòng kiểm tra log." >&2
-    return 1
-  fi
 
-  # 2.7 Mở cổng trên firewall (iptables)
-  echo "[INFO] Mở cổng $PORT trên firewall (iptables)..."
+  # Mở firewall
   iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null || \
-  iptables -A INPUT -p tcp --dport "$PORT" -j ACCEPT
-  # Lưu các quy tắc iptables để chúng tồn tại sau khi reboot (cần gói iptables-persistent)
-  # Nếu bạn không có iptables-persistent, các quy tắc này sẽ mất sau khi khởi động lại.
+    iptables -A INPUT -p tcp --dport "$PORT" -j ACCEPT
+
+  # Gửi thông tin về Telegram
+  if [[ -n "$BOT_TOKEN" && -n "$USER_ID" ]]; then
+    PUBLIC_IP=$(curl -s ifconfig.me)
+    MSG="Proxy SOCKS5 đã sẵn sàng!
+IP: $PUBLIC_IP
+Port: $PORT
+User: $USERNAME
+Pass: $PASSWORD"
+    curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+      -d chat_id="$USER_ID" \
+      -d text="$MSG" >/dev/null
+  fi
+}
+
+setup_proxy_fixed "$@"
